@@ -1,1 +1,16 @@
-{"name": "pulse-platform", "version": "1.0.0", "private": true, "workspaces": ["client", "server", "scraper"]}
+{
+    "name": "pulse-platform",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "client",
+        "server",
+        "scraper"
+    ],
+    "scripts": {
+        "setup": "npm install",
+        "dev": "npm run dev --workspaces",
+        "dev:client": "npm run dev --workspace=client",
+        "dev:server": "npm run dev --workspace=server"
+    }
+}
