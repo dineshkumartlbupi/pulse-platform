@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ContentItem {
+  id          String   @id @default(uuid())
+  title       String
+  url         String   @unique
+  description String?
+  imageUrl    String?
+  source      String   // e.g. "Google News", "YouTube", "Instagram"
+  type        String   // NEWS, VIDEO, SOCIAL
+  publishedAt DateTime
+  scrapedAt   DateTime @default(now())
+  tags        String?  // JSON string or comma separated
+}
+
+model ScrapeLog {
+  id        String   @id @default(uuid())
+  status    String   // SUCCESS, ERROR
+  message   String?
+  source    String
+  createdAt DateTime @default(now())
+}
