@@ -10,6 +10,7 @@ export interface ScrapeResult {
     // API V2 Fields
     location?: string;
     category?: string;
+    severity?: string;
     city?: string;
     country?: string;
     lat?: number;

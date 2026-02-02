@@ -1,7 +1,8 @@
 import { Scraper, ScrapeResult } from './types';
 import { chromium } from 'playwright';
 
-import { determineCategory, determineLocation } from '../utils/categorizer';
+import { classifyContent } from '../utils/categories';
+import { determineLocation } from '../utils/categorizer';
 
 export class InstagramScraper implements Scraper {
     name = 'Instagram';
@@ -43,25 +44,28 @@ export class InstagramScraper implements Scraper {
                     const description = alt || 'Instagram content';
 
                     // Auto-detect metadata
-                    const category = determineCategory(description);
+                    const classification = classifyContent(description);
                     const locData = determineLocation(description);
                     let location = 'Global';
                     if (locData.city) location = locData.city;
                     else if (locData.country) location = locData.country;
 
-                    results.push({
-                        title,
-                        url: `https://www.instagram.com${href}`,
-                        source: 'Instagram',
-                        type: 'SOCIAL',
-                        publishedAt: new Date(),
-                        imageUrl: src,
-                        description,
-                        location,
-                        category,
-                        city: locData.city,
-                        country: locData.country
-                    });
+                    if (classification.category !== 'OTHER') {
+                        results.push({
+                            title,
+                            url: `https://www.instagram.com${href}`,
+                            source: 'Instagram',
+                            type: 'SOCIAL',
+                            publishedAt: new Date(),
+                            imageUrl: src,
+                            description,
+                            location,
+                            category: classification.category,
+                            severity: classification.severity,
+                            city: locData.city,
+                            country: locData.country
+                        });
+                    }
                 }
             }
 

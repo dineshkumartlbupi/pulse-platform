@@ -2,7 +2,8 @@ import { Scraper, ScrapeResult } from './types';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import parser from 'xml2js';
-import { determineCategory, determineLocation } from '../utils/categorizer';
+import { classifyContent } from '../utils/categories';
+import { determineLocation } from '../utils/categorizer';
 
 export class GoogleNewsScraper implements Scraper {
     name = 'GoogleNews';
@@ -111,32 +112,31 @@ export class GoogleNewsScraper implements Scraper {
                         // Use full content if found, otherwise fallback to RSS description
                         const finalDescription = fullContent || (rssDesc ? rssDesc.replace(/<[^>]*>?/gm, "") : '');
 
-                        // Auto-categorize
-                        const category = determineCategory(title + ' ' + finalDescription);
-                        const locData = determineLocation(title);
 
-                        let location = 'Global';
-                        if (locData.city) location = locData.city;
-                        else if (locData.country) location = locData.country;
-                        else {
-                            if (title.includes('US') || title.includes('U.S.')) location = 'United States';
-                            else if (title.includes('UK') || title.includes('Britain')) location = 'United Kingdom';
-                            else if (title.includes('India')) location = 'India';
+                        // categorize
+                        const classification = classifyContent(title + ' ' + finalDescription);
+
+                        // Determine location
+                        const locData = determineLocation(title + ' ' + finalDescription);
+                        const location = locData.city ? `${locData.city}, ${locData.country}` : locData.country;
+
+                        // Only add if it belongs to a relevant category (not OTHER)
+                        if (classification.category !== 'OTHER') {
+                            results.push({
+                                title,
+                                url: link,
+                                source,
+                                type: 'NEWS',
+                                publishedAt: pubDate,
+                                description: finalDescription, // Contains full text if successful
+                                imageUrl,
+                                location,
+                                category: classification.category,
+                                severity: classification.severity,
+                                city: locData.city,
+                                country: locData.country
+                            });
                         }
-
-                        results.push({
-                            title,
-                            url: link,
-                            source,
-                            type: 'NEWS',
-                            publishedAt: pubDate,
-                            description: finalDescription, // Contains full text if successful
-                            imageUrl,
-                            location,
-                            category,
-                            city: locData.city,
-                            country: locData.country
-                        });
                     }
                 } catch (e) {
                     console.log(`Failed query: ${q.type || q.term}`);

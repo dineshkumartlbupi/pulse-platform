@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { ContentCard } from './ContentCard';
 import { RefreshCw, Filter, MapPin } from 'lucide-react';
@@ -10,10 +9,45 @@ export const Feed = () => {
     const [loading, setLoading] = useState(true);
     const [isScraping, setIsScraping] = useState(false);
     const [filter, setFilter] = useState('ALL');
-    const CATEGORIES = ['ALL', 'Business', 'Tech', 'Crime', 'Politics', 'Education', 'Health', 'Entertainment', 'Sports'];
+    const CATEGORIES = ['ALL', 'CRIME', 'ACCIDENT', 'FIRE', 'EARTHQUAKE', 'FLOOD', 'OTHER'];
 
     const [category, setCategory] = useState('ALL');
     const [locationInput, setLocationInput] = useState('');
+    const [isLocating, setIsLocating] = useState(false);
+    const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [radius, setRadius] = useState<number>(100);
+
+    const detectLocation = () => {
+        setIsLocating(true);
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude, longitude } = position.coords;
+                setUserCoords({ lat: latitude, lng: longitude });
+                try {
+                    // Free reverse geocoding to get city
+                    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+                    const data = await res.json();
+                    if (data.city) setLocationInput(data.city);
+                    else if (data.locality) setLocationInput(data.locality);
+                    else if (data.principalSubdivision) setLocationInput(data.principalSubdivision);
+                } catch (e) {
+                    console.error('Geo error', e);
+                } finally {
+                    setIsLocating(false);
+                }
+            }, (error) => {
+                console.error('Geolocation error', error);
+                setIsLocating(false);
+            });
+        } else {
+            alert('Geolocation not supported');
+            setIsLocating(false);
+        }
+    };
+
+    useEffect(() => {
+        detectLocation();
+    }, []);
 
     const fetchContent = async () => {
         try {
@@ -22,6 +56,11 @@ export const Feed = () => {
             if (filter !== 'ALL') params.append('type', filter);
             if (category !== 'ALL') params.append('category', category);
             if (locationInput.trim()) params.append('location', locationInput);
+            if (userCoords) {
+                params.append('userLat', userCoords.lat.toString());
+                params.append('userLng', userCoords.lng.toString());
+                params.append('radius', radius.toString());
+            }
 
             const res = await fetch(`http://localhost:3001/api/content?${params.toString()}`);
             const data = await res.json();
@@ -50,7 +89,7 @@ export const Feed = () => {
     useEffect(() => {
         const timeout = setTimeout(fetchContent, 500); // Debounce location typing
         return () => clearTimeout(timeout);
-    }, [filter, category, locationInput]);
+    }, [filter, category, locationInput, radius, userCoords]);
 
     // ... render ...
 
@@ -60,10 +99,10 @@ export const Feed = () => {
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                            Pulse Feed
+                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-500">
+                            Live Alert Feed
                         </h1>
-                        <p className="text-zinc-400 text-sm">Real-time content aggregator</p>
+                        <p className="text-zinc-400 text-sm">Real-time sensitive event monitoring</p>
                     </div>
 
                     <button
@@ -112,30 +151,30 @@ export const Feed = () => {
                             />
                         </div>
                         <button
-                            onClick={() => {
-                                if ('geolocation' in navigator) {
-                                    navigator.geolocation.getCurrentPosition(async (position) => {
-                                        const { latitude, longitude } = position.coords;
-                                        try {
-                                            // Free reverse geocoding to get city
-                                            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
-                                            const data = await res.json();
-                                            if (data.city) setLocationInput(data.city);
-                                            else if (data.locality) setLocationInput(data.locality);
-                                            else if (data.principalSubdivision) setLocationInput(data.principalSubdivision);
-                                        } catch (e) {
-                                            console.error('Geo error', e);
-                                        }
-                                    });
-                                } else {
-                                    alert('Geolocation not supported');
-                                }
-                            }}
-                            className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-blue-500/30 flex items-center gap-1"
+                            onClick={detectLocation}
+                            disabled={isLocating}
+                            className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-blue-500/30 flex items-center gap-1 disabled:opacity-50"
                         >
-                            <MapPin className="w-3 h-3" /> Near Me
+                            <MapPin className={`w-3 h-3 ${isLocating ? 'animate-bounce' : ''}`} /> {isLocating ? 'Locating...' : 'Near Me'}
                         </button>
                     </div>
+
+                    {/* Radius Slider */}
+                    {userCoords && (
+                        <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5">
+                            <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">
+                                Radius: <span className="text-white">{radius} km</span>
+                            </span>
+                            <input
+                                type="range"
+                                min="10"
+                                max="500"
+                                value={radius}
+                                onChange={(e) => setRadius(Number(e.target.value))}
+                                className="w-24 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
+                        </div>
+                    )}
 
                     {/* Category Filter */}
                     <div className="flex flex-wrap gap-2">

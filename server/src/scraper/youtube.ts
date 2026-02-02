@@ -2,7 +2,8 @@ import { Scraper, ScrapeResult } from './types';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 
-import { determineCategory, determineLocation } from '../utils/categorizer';
+import { classifyContent } from '../utils/categories';
+import { determineLocation } from '../utils/categorizer';
 
 export class YouTubeScraper implements Scraper {
     name = 'YouTube';
@@ -33,25 +34,28 @@ export class YouTubeScraper implements Scraper {
                         const thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
 
                         // Auto-detect metadata
-                        const category = determineCategory(title + ' ' + description);
+                        const classification = classifyContent(title + ' ' + description);
                         const locData = determineLocation(title + ' ' + description);
                         let location = 'Global';
                         if (locData.city) location = locData.city;
                         else if (locData.country) location = locData.country;
 
-                        results.push({
-                            title,
-                            url,
-                            source: `YouTube - ${channel.name}`,
-                            type: 'VIDEO',
-                            publishedAt,
-                            imageUrl: thumbnail,
-                            description: description.substring(0, 200) + '...',
-                            location,
-                            category,
-                            city: locData.city,
-                            country: locData.country
-                        });
+                        if (classification.category !== 'OTHER') {
+                            results.push({
+                                title,
+                                url,
+                                source: `YouTube - ${channel.name}`,
+                                type: 'VIDEO',
+                                publishedAt,
+                                imageUrl: thumbnail,
+                                description: description.substring(0, 200) + '...',
+                                location,
+                                category: classification.category,
+                                severity: classification.severity,
+                                city: locData.city,
+                                country: locData.country
+                            });
+                        }
                     });
                 } catch (e) {
                     console.error(`Failed to scrape YouTube channel ${channel.name}`);

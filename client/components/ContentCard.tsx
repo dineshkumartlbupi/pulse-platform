@@ -17,7 +17,11 @@ interface ContentCardProps {
     imageUrl?: string;
     description?: string;
     location?: string;
+    category?: string;
+    severity?: string;
     index: number;
+    city?: string;
+    country?: string;
 }
 
 const SourceIcon = ({ type }: { type: ContentType }) => {
@@ -34,12 +38,10 @@ const DEFAULT_IMAGES = {
     SOCIAL: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80' // Social/Connect
 };
 
-export const ContentCard = ({ title, url, source, type, publishedAt, imageUrl, description, location, index }: ContentCardProps) => {
-    // Use state to manage the image source, defaulting to the provided URL or falling back immediately if missing
+export const ContentCard = ({ title, url, source, type, publishedAt, imageUrl, description, location, category, severity, index, city, country }: ContentCardProps) => {
     const [imgSrc, setImgSrc] = useState<string>(imageUrl || DEFAULT_IMAGES[type]);
     const [hasError, setHasError] = useState(false);
 
-    // Update state if props change (e.g. during a refresh)
     useEffect(() => {
         setImgSrc(imageUrl || DEFAULT_IMAGES[type]);
         setHasError(false);
@@ -52,10 +54,13 @@ export const ContentCard = ({ title, url, source, type, publishedAt, imageUrl, d
         }
     };
 
-    // Extract handle-like name
-    const sourceHandle = source.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 15);
-
     const isFresh = (new Date().getTime() - new Date(publishedAt).getTime()) < (1000 * 60 * 60); // < 1 hour
+
+    const getSeverityColor = (sev?: string) => {
+        if (sev === 'HIGH') return 'bg-red-600 text-white animate-pulse';
+        if (sev === 'MEDIUM') return 'bg-orange-500/20 text-orange-400 border-orange-500/50 border';
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/50 border';
+    };
 
     return (
         <motion.div
@@ -65,35 +70,47 @@ export const ContentCard = ({ title, url, source, type, publishedAt, imageUrl, d
             className="bg-zinc-950 border border-zinc-800/60 rounded-xl p-4 hover:bg-zinc-900/40 transition-colors group cursor-pointer relative overflow-hidden"
         >
             {isFresh && (
-                <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg shadow-red-500/20 shadow-lg z-10 animate-pulse">
+                <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg shadow-red-500/20 shadow-lg z-10">
                     LIVE
                 </div>
             )}
             <a href={url} target="_blank" rel="noopener noreferrer" className="flex flex-col h-full">
-                {/* ALWAYS render image div now, using fallback if needed */}
-                <div className="relative h-48 w-full overflow-hidden bg-zinc-800">
+                <div className="relative h-48 w-full overflow-hidden bg-zinc-800 rounded-lg mb-3">
                     <img
                         src={imgSrc}
                         alt={title}
                         onError={handleImageError}
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 text-white border border-white/10">
-                        <SourceIcon type={type} />
-                        {source}
+                    <div className="absolute top-2 right-2 flex flex-col gap-2 items-end">
+                        <div className="bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 text-white border border-white/10">
+                            <SourceIcon type={type} />
+                            {source}
+                        </div>
+                        {category && category !== 'OTHER' && (
+                            <div className="bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-xs font-medium text-white border border-white/10 uppercase tracking-wider">
+                                {category}
+                            </div>
+                        )}
                     </div>
+
+                    {severity && (
+                        <div className={`absolute bottom-2 left-2 px-2 py-1 rounded-lg text-xs font-bold ${getSeverityColor(severity)} backdrop-blur-sm`}>
+                            {severity} PRIORITY
+                        </div>
+                    )}
                 </div>
 
-                <div className="p-4 flex flex-col flex-grow">
+                <div className="flex flex-col flex-grow">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2 text-xs text-zinc-400">
                             <Calendar className="w-3 h-3" />
                             <span>{formatDistanceToNow(new Date(publishedAt), { addSuffix: true })}</span>
                         </div>
-                        {location && location !== 'Global' && (
+                        {(city || country || (location && location !== 'Global')) && (
                             <div className="flex items-center gap-1 text-xs text-zinc-500">
                                 <MapPin className="w-3 h-3" />
-                                <span>{location}</span>
+                                <span>{city ? `${city}, ${country || ''}` : (country || location)}</span>
                             </div>
                         )}
                     </div>

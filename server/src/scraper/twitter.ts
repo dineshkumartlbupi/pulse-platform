@@ -3,7 +3,8 @@ import * as cheerio from 'cheerio';
 import axios from 'axios';
 import parser from 'xml2js';
 
-import { determineCategory, determineLocation } from '../utils/categorizer';
+import { classifyContent } from '../utils/categories';
+import { determineLocation } from '../utils/categorizer';
 
 export class TwitterScraper implements Scraper {
     name = 'Twitter';
@@ -66,26 +67,28 @@ export class TwitterScraper implements Scraper {
 
                     // Auto-detect metadata
                     const fullText = title + ' ' + description;
-                    const category = determineCategory(fullText);
+                    const classification = classifyContent(fullText);
                     const locData = determineLocation(fullText);
                     let location = 'Global';
                     if (locData.city) location = locData.city;
                     else if (locData.country) location = locData.country;
 
-
-                    results.push({
-                        title: `@${account}: ${title}`,
-                        url: link,
-                        source: 'X (Twitter)',
-                        type: 'SOCIAL',
-                        publishedAt: pubDate,
-                        description: title,
-                        imageUrl,
-                        location,
-                        category,
-                        city: locData.city,
-                        country: locData.country
-                    });
+                    if (classification.category !== 'OTHER') {
+                        results.push({
+                            title: `@${account}: ${title}`,
+                            url: link,
+                            source: 'X (Twitter)',
+                            type: 'SOCIAL',
+                            publishedAt: pubDate,
+                            description: title,
+                            imageUrl,
+                            location,
+                            category: classification.category,
+                            severity: classification.severity,
+                            city: locData.city,
+                            country: locData.country
+                        });
+                    }
                 }
             } catch (error: any) {
                 console.error(`Twitter scrape failed for ${account} on ${activeInstance}:`, error.message);

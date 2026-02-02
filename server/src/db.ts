@@ -28,6 +28,7 @@ export async function initDb() {
       tags TEXT,
       location TEXT,
       category TEXT,
+      severity TEXT,
       city TEXT,
       country TEXT,
       lat REAL,

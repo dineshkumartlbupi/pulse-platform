@@ -36,8 +36,8 @@ export class ScraperEngine {
         for (const item of cleanItems) {
             try {
                 await db.run(
-                    `INSERT OR IGNORE INTO content_items (id, title, url, description, imageUrl, source, type, publishedAt, location)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    `INSERT OR IGNORE INTO content_items (id, title, url, description, imageUrl, source, type, publishedAt, location, category, severity, city, country, lat, lng)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         uuidv4(),
                         item.title,
@@ -47,7 +47,13 @@ export class ScraperEngine {
                         item.source,
                         item.type,
                         item.publishedAt.toISOString(),
-                        item.location
+                        item.location,
+                        item.category,
+                        item.severity,
+                        item.city,
+                        item.country,
+                        item.lat,
+                        item.lng
                     ]
                 );
             } catch (e) {

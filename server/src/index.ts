@@ -53,6 +53,7 @@ app.get('/api/v1/feed', authenticateApiKey, async (req, res) => {
             source,
             type,
             search,
+            severity,
             limit = 20,
             page = 1
         } = req.query;
@@ -127,6 +128,54 @@ app.post('/api/v1/register', async (req, res) => {
     }
 });
 
+// Stats Endpoint for Dashboard
+app.get('/api/stats', async (req, res) => {
+    try {
+        const db = await getDb();
+        const stats = await db.get(`
+            SELECT 
+                COUNT(*) as total_items,
+                SUM(CASE WHEN severity = 'HIGH' THEN 1 ELSE 0 END) as high_severity,
+                SUM(CASE WHEN scrapedAt > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as recent_items
+            FROM content_items
+        `);
+
+        const categoryStats = await db.all(`
+            SELECT category, COUNT(*) as count 
+            FROM content_items 
+            GROUP BY category
+        `);
+
+        res.json({
+            status: 'success',
+            overview: stats,
+            categories: categoryStats
+        });
+    } catch (error) {
+        console.error('Stats Error', error);
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});
+
+// Helper for Haversine Distance
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        ;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in km
+    return d;
+}
+
+function deg2rad(deg: number) {
+    return deg * (Math.PI / 180);
+}
+
 // Legacy endpoint for frontend (keep for compatibility or update frontend to use V1)
 app.get('/api/content', async (req, res) => {
     try {
@@ -139,7 +188,10 @@ app.get('/api/content', async (req, res) => {
             type,
             search,
             limit = 50,
-            location // Add location param
+            location, // Add location param
+            userLat,
+            userLng,
+            radius // radius in km
         } = req.query;
 
         let query = 'SELECT * FROM content_items WHERE 1=1';
@@ -151,8 +203,8 @@ app.get('/api/content', async (req, res) => {
         }
         // Generic location search
         if (location) {
-            query += ' AND (city LIKE ? OR country LIKE ? OR location LIKE ?)';
-            params.push(`%${location}%`, `%${location}%`, `%${location}%`);
+            query += ' AND (city LIKE ? OR country LIKE ? OR location LIKE ? OR title LIKE ? OR description LIKE ?)';
+            params.push(`%${location}%`, `%${location}%`, `%${location}%`, `%${location}%`, `%${location}%`);
         }
         // Specific filters if provided (though 'location' usually supersedes these in this simple UI)
         if (city) {
@@ -179,7 +231,21 @@ app.get('/api/content', async (req, res) => {
         query += ' ORDER BY publishedAt DESC LIMIT ?';
         params.push(limit);
 
-        const content = await db.all(query, params);
+        let content = await db.all(query, params);
+
+        // Radius Filtering if coords provided
+        if (userLat && userLng && radius) {
+            const lat = parseFloat(userLat as string);
+            const lng = parseFloat(userLng as string);
+            const rad = parseFloat(radius as string);
+
+            content = content.filter(item => {
+                if (!item.lat || !item.lng) return false;
+                const dist = getDistanceFromLatLonInKm(lat, lng, item.lat, item.lng);
+                return dist <= rad;
+            });
+        }
+
         res.json(content);
     } catch (error) {
         console.error(error);
